@@ -150,15 +150,13 @@ summary(null)
 # First model
 model1 <- lmer(CHI_MLU ~ VISIT*Diagnosis + (1 | SUBJ) + (0 + VISIT | SUBJ), data=data)
 summary(model1)
-
-# Comparing models with anova
-anova(null, model1)
 ```
 
 How would you evaluate whether the model is a good model?
 
 ```{r ex2 evaluate, include = FALSE}
-ano
+# Comparing models with anova
+anova(null, model1)
 ```
 
 Not too good, right? Let's check whether a growth curve model is better.
@@ -166,7 +164,18 @@ Remember: a growth curve model assesses whether changes in time can be described
 First build the different models, then compare them to see which one is better.
 
 ```{r ex2 growth curve, include = FALSE}
+#adding new collumn with visit squared
+data$VISIT2 <- data$VISIT^2
 
+#Specifying growth curve null
+null_curve <- lmer(CHI_MLU ~ VISIT + Diagnosis + VISIT2 + (1 | SUBJ) + (0 + VISIT | SUBJ), data=data)
+
+#Specifying full model
+model3 <- lmer(CHI_MLU ~ VISIT + Diagnosis + VISIT2 + VISIT*Diagnosis + VISIT2*Diagnosis + (1 | SUBJ) + (0 + VISIT | SUBJ), data=data)
+summary(model3)
+
+# Comparing the models
+anova(null_curve,model3)
 ```
 
 Exciting right? Let's check whether the model is doing an alright job at fitting the data. Plot the actual CHI_MLU data against the predictions of the model fitted(model). 
