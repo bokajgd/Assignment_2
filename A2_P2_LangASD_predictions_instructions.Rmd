@@ -2,7 +2,9 @@
 title: "Assignment 2 - Language Development in ASD - Making predictions"
 author: "Riccardo Fusaroli"
 date: "August 9, 2019"
-output: html_document
+output: 
+  md_document:
+    variant: markdown_github 
 ---
 
 ```{r setup, include=FALSE}

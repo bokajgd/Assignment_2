@@ -2,7 +2,9 @@
 title: "Assignment 2 - Language Development in ASD - Part 1 - Explaining development"
 author: "[YOUR NAME]"
 date: "[DATE]"
-output: html_document
+output: 
+  md_document:
+    variant: markdown_github 
 ---
     
 ```{r setup, include=FALSE}
