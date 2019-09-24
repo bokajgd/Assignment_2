@@ -194,7 +194,7 @@ for(i in 1:5){
 
 mean(rmse_list)
 
-# Trying CVMS package 
+ # Trying CVMS package 
 # cv <- fold(train_data, k = 5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% cross_validate(null, folds_col # = '.folds',family='gaussian', REML = FALSE)
 
 #- Report the results and comment on them. 
@@ -221,6 +221,7 @@ mean(rmse_list_model5)
 ```
 
 [HERE GOES YOUR ANSWER]
+When assessing the out-of-sample prediction error of various models via K-fold cross-validation model 4 and model 5 turn out to be the best models (very similar). These can then be tested on the test_data. 
 
 ### Exercise 3) Assessing the single child
 
@@ -235,7 +236,39 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 ```{r}
+# Filtering out Bernie-boy
+bernie <- test_data %>% filter(Child.ID==2)
 
+# Filter all td kids and calculate mean MLU for each visit
+visit_td_CHI_MLU <- train_data %>% filter(Diagnosis=='TD') %>% group_by(Visit) %>% summarise(mean=mean(CHI_MLU))
+visit_td_CHI_MLU
+# Add SternBern
+visit_td_CHI_MLU$bernie <- bernie$CHI_MLU
+
+# Calculate diference
+visit_td_CHI_MLU$difference <- visit_td_CHI_MLU$bernie-visit_td_CHI_MLU$mean
+visit_td_CHI_MLU$difference # Bernie performs muuuch better
+
+# Plotting difference
+bernie <- test_data %>% 
+  filter(Child.ID == 2)
+onlyTD <- train_data %>% 
+  filter(Diagnosis == "TD")
+
+ggplot()+
+  geom_point(data = onlyTD, aes(x = Visit, y= mean(CHI_MLU), group = Visit, color = "Blue", size=10))+
+  geom_smooth(data = onlyTD, aes(x = Visit, y = CHI_MLU, color = "Blue"), method = lm, se=FALSE)+
+  geom_point(data = bernie, aes(x = Visit, y = CHI_MLU, group = Visit, color = "Red", size = 10))+
+  geom_smooth(data = bernie, aes(x = Visit, y = CHI_MLU, color = "Red"), method = lm, se=FALSE)+
+  theme_classic()+
+  labs(title = "Bernie compared to TD-children", x = "Number of visit", y = "Mean length of utterance")+
+  theme(legend.position="none")+
+  geom_text(aes(x = 5, y = 3.5, label = "Bernie", color = "Red"))+
+  geom_text(aes(x = 5, y = 2, label = "Mean TD", color = "Blue"))
+
+# See how well Bernie is predicted by the model
+predictions_bernie <- predict(model4, bernie)
+rmse(predictions_bernie,bernie$CHI_MLU)
 ```
 
 

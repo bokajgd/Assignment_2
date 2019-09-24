@@ -336,41 +336,41 @@ predictInterval(model4, test_data, n.sims=500, level=0.9, stat="median")
 ```
 
     ##          fit      upr       lwr
-    ## 1  1.2591580 1.889300 0.5849592
-    ## 2  1.5624398 2.247514 0.9074064
-    ## 3  1.6770699 2.291012 1.0156107
-    ## 4  1.7832408 2.436981 1.0549212
-    ## 5  1.7612170 2.416471 1.1739714
-    ## 6  2.3110362 3.024557 1.6038751
-    ## 7  3.0980135 3.765643 2.4018999
-    ## 8  3.5996664 4.337392 2.9384051
-    ## 9  3.8218672 4.482686 3.1231385
-    ## 10 3.8364244 4.565012 3.1291289
-    ## 11 3.5149938 4.306307 2.7716483
-    ## 12 1.6037478 2.126126 0.9884905
-    ## 13 2.0017342 2.639145 1.3497130
-    ## 14 2.2417972 2.946676 1.5498679
-    ## 15 2.3559287 2.910417 1.7089304
-    ## 16 2.3379963 2.996541 1.6818123
-    ## 17 2.1244483 2.775019 1.4895089
-    ## 18 1.3052636 1.877299 0.6524577
-    ## 19 2.0094775 2.641100 1.2995915
-    ## 20 2.5992422 3.270638 1.9860098
-    ## 21 3.0656954 3.744706 2.3840392
-    ## 22 3.4198487 4.015646 2.7399580
-    ## 23 3.6232715 4.279458 2.9314661
-    ## 24 0.9102554 1.559386 0.2956769
-    ## 25 1.3162376 1.988875 0.6367028
-    ## 26 1.7484278 2.406392 1.0774123
-    ## 27 2.1573863 2.780417 1.5529184
-    ## 28 2.5893009 3.291777 1.8559704
-    ## 29 3.0247090 3.757591 2.3032950
-    ## 30 0.8988173 1.514895 0.3034176
-    ## 31 1.3677452 2.089610 0.6886929
-    ## 32 1.8251890 2.476272 1.2019515
-    ## 33 2.2447349 2.883836 1.5916891
-    ## 34 2.5622829 3.255994 1.9707970
-    ## 35 2.9210335 3.623305 2.2295271
+    ## 1  1.2628429 1.926162 0.5841127
+    ## 2  1.5598149 2.300076 0.8846474
+    ## 3  1.6840890 2.379705 1.0172758
+    ## 4  1.7270732 2.365108 1.1137872
+    ## 5  1.7798379 2.459114 1.0790103
+    ## 6  2.3236622 2.937802 1.7420447
+    ## 7  3.0486976 3.679459 2.4419726
+    ## 8  3.5940352 4.269929 2.8856114
+    ## 9  3.8397582 4.554251 3.2036784
+    ## 10 3.8049509 4.483276 3.0871510
+    ## 11 3.5800717 4.299315 2.8181678
+    ## 12 1.6089643 2.159931 0.9708085
+    ## 13 1.9693454 2.629596 1.4119889
+    ## 14 2.2327099 2.895425 1.7000267
+    ## 15 2.3149088 2.935647 1.6415271
+    ## 16 2.2796925 2.954277 1.5690793
+    ## 17 2.1110415 2.815868 1.4337669
+    ## 18 1.2804022 1.915049 0.6798222
+    ## 19 2.0327271 2.678608 1.3542571
+    ## 20 2.5925691 3.228826 1.9802813
+    ## 21 3.0805841 3.696535 2.4065818
+    ## 22 3.3759162 4.058279 2.7063563
+    ## 23 3.6005754 4.309999 2.8475630
+    ## 24 0.9031270 1.554993 0.2150293
+    ## 25 1.3212619 1.940438 0.6370155
+    ## 26 1.7108922 2.299551 1.0395201
+    ## 27 2.1279803 2.768022 1.4812343
+    ## 28 2.5782003 3.239427 1.9135310
+    ## 29 2.9966051 3.716245 2.2704640
+    ## 30 0.9241381 1.535716 0.2320218
+    ## 31 1.3917618 2.052686 0.6799324
+    ## 32 1.8099173 2.478309 1.1487523
+    ## 33 2.2223342 2.814650 1.5540111
+    ## 34 2.5429074 3.239162 1.8983853
+    ## 35 2.9148936 3.606637 2.2210572
 
 \[HERE GOES YOUR ANSWER\]
 
@@ -407,27 +407,29 @@ for(i in 1:5){
 }
 ```
 
-    ## boundary (singular) fit: see ?isSingular
-    ## boundary (singular) fit: see ?isSingular
-
     ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge with max|grad| = 0.549517
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.124061
     ## (tol = 0.002, component 1)
 
     ## boundary (singular) fit: see ?isSingular
+    ## boundary (singular) fit: see ?isSingular
 
     ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge with max|grad| = 0.0539374
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.432599
+    ## (tol = 0.002, component 1)
+
+    ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.104066
     ## (tol = 0.002, component 1)
 
 ``` r
 mean(rmse_list)
 ```
 
-    ## [1] 0.5422916
+    ## [1] 0.5407698
 
 ``` r
-# Trying CVMS package 
+ # Trying CVMS package 
 # cv <- fold(train_data, k = 5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% cross_validate(null, folds_col # = '.folds',family='gaussian', REML = FALSE)
 
 #- Report the results and comment on them. 
@@ -449,40 +451,36 @@ for(i in 1:5){
 ```
 
     ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge with max|grad| = 0.103822
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.037686
     ## (tol = 0.002, component 1)
 
     ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge with max|grad| = 0.0207934
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.0894421
     ## (tol = 0.002, component 1)
 
-    ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge with max|grad| = 2.50274 (tol
-    ## = 0.002, component 1)
+    ## boundary (singular) fit: see ?isSingular
+
+    ## Warning: Model failed to converge with 2 negative eigenvalues: -1.8e-02
+    ## -2.1e+02
 
     ## boundary (singular) fit: see ?isSingular
 
     ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : unable to evaluate scaled gradient
-
-    ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
-    ## control$checkConv, : Model failed to converge: degenerate Hessian with 1
-    ## negative eigenvalues
-
-    ## Warning: Model failed to converge with 1 negative eigenvalue: -1.5e+03
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.0259485
+    ## (tol = 0.002, component 1)
 
 ``` r
 mean(rmse_list_model5)
 ```
 
-    ## [1] 0.5446822
+    ## [1] 0.5413411
 
 ``` r
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 # Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 ```
 
-\[HERE GOES YOUR ANSWER\]
+\[HERE GOES YOUR ANSWER\] When assessing the out-of-sample prediction error of various models via K-fold cross-validation model 4 and model 5 turn out to be the best models (very similar). These can then be tested on the test\_data.
 
 ### Exercise 3) Assessing the single child
 
@@ -495,6 +493,65 @@ You want to evaluate:
 -   how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
 
 -   how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+``` r
+# Filtering out Bernie-boy
+bernie <- test_data %>% filter(Child.ID==2)
+
+# Filter all td kids and calculate mean MLU for each visit
+visit_td_CHI_MLU <- train_data %>% filter(Diagnosis=='TD') %>% group_by(Visit) %>% summarise(mean=mean(CHI_MLU))
+visit_td_CHI_MLU
+```
+
+    ## # A tibble: 6 x 2
+    ##   Visit  mean
+    ##   <dbl> <dbl>
+    ## 1     1  1.30
+    ## 2     2  1.44
+    ## 3     3  1.77
+    ## 4     4  1.86
+    ## 5     5  1.60
+    ## 6     6  1.89
+
+``` r
+# Add SternBern
+visit_td_CHI_MLU$bernie <- bernie$CHI_MLU
+
+# Calculate diference
+visit_td_CHI_MLU$difference <- visit_td_CHI_MLU$bernie-visit_td_CHI_MLU$mean
+visit_td_CHI_MLU$difference # Bernie performs muuuch better
+```
+
+    ## [1] 0.6799798 1.1007610 1.5825561 1.3243901 1.5747398 1.5565052
+
+``` r
+# Plotting difference
+bernie <- test_data %>% 
+  filter(Child.ID == 2)
+onlyTD <- train_data %>% 
+  filter(Diagnosis == "TD")
+
+ggplot()+
+  geom_point(data = onlyTD, aes(x = Visit, y= mean(CHI_MLU), group = Visit, color = "Blue", size=10))+
+  geom_smooth(data = onlyTD, aes(x = Visit, y = CHI_MLU, color = "Blue"), method = lm, se=FALSE)+
+  geom_point(data = bernie, aes(x = Visit, y = CHI_MLU, group = Visit, color = "Red", size = 10))+
+  geom_smooth(data = bernie, aes(x = Visit, y = CHI_MLU, color = "Red"), method = lm, se=FALSE)+
+  theme_classic()+
+  labs(title = "Bernie compared to TD-children", x = "Number of visit", y = "Mean length of utterance")+
+  theme(legend.position="none")+
+  geom_text(aes(x = 5, y = 3.5, label = "Bernie", color = "Red"))+
+  geom_text(aes(x = 5, y = 2, label = "Mean TD", color = "Blue"))
+```
+
+![](A2_P2_LangASD_predictions_instructions_files/figure-markdown_github/unnamed-chunk-4-1.png)
+
+``` r
+# See how well Bernie is predicted by the model
+predictions_bernie <- predict(model4, bernie)
+rmse(predictions_bernie,bernie$CHI_MLU)
+```
+
+    ## [1] 0.4737798
 
 \[HERE GOES YOUR ANSWER\]
 
