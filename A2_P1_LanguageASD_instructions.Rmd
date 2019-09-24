@@ -2,9 +2,7 @@
 title: "Assignment 2 - Language Development in ASD - Part 1 - Explaining development"
 author: "[YOUR NAME]"
 date: "[DATE]"
-output: 
-  md_document:
-    variant: github_markdown
+output: html_document
 ---
     
 ```{r setup, include=FALSE}
@@ -83,7 +81,7 @@ p_load(tidyverse, tidytext, stringr, lmerTest, lme4, dplyr, ggplot2, data.table,
 # Defining Riccardo's function for plot
 GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
   data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
-  grp <- data[1,'group']´
+  grp <- data[1,'group']
   newdata <- plyr::arrange(transform(data, x = if(grp%%2==1) xminv else xmaxv), if(grp%%2==1) y else -y)
   newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
   newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
@@ -203,7 +201,7 @@ null_curve <- lmer(CHI_MLU ~ VISIT + Diagnosis + VISIT2 + (1 | SUBJ) + (0 + VISI
 
 #Specifying full model
 model2 <- lmer(CHI_MLU ~ VISIT + Diagnosis + VISIT2 + VISIT*Diagnosis + VISIT2*Diagnosis + (1 | SUBJ) + (0 + VISIT + VISIT2| SUBJ), data=data)
-summary(model3)
+summary(model2)
 
 # Comparing the models
 anova(null_curve,model2, model1, null)

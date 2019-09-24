@@ -46,8 +46,8 @@ How did your models from last time perform? In this exercise you have to compare
 
 
 ```{r, include = FALSE}
-
-pacman::p_load(readr,dplyr,stringr,lmerTest,Metrics,caret)
+library(pacman)
+pacman::p_load(readr,dplyr,stringr,lmerTest, Metrics,caret, ggbeeswarm, merTools, groupdata2, broom.mixed)
 
 ## Clean up function, included to inspire you
 
@@ -98,24 +98,60 @@ CleanUpData <- function(Demo,LU,Word){
   return(Data)
 }
 
-# Load training Data
+```
 
+# Part 1
+```{r}
+# Load training Data
+LU_train <- read.csv("LU_train.csv")
+LU_test <- read.csv("LU_test.csv")
+demo_train <- read.csv("demo_train.csv")
+demo_test <- read.csv("demo_test.csv")
+token_train <- read.csv("token_train.csv")
+token_test <- read.csv("token_test.csv")
+
+
+# Cleanup data
+train_data <- CleanUpData(demo_train, token_train, LU_train)
+test_data <- CleanUpData(demo_test, token_test, LU_test)
+
+# Add visit^2
+train_data$Visit2 <- train_data$Visit^2 
+test_data$Visit2 <- test_data$Visit^2 
+
+# Remove NAs
+train_data <- subset(train_data, !is.na(CHI_MLU))
+test_data <- subset(test_data, !is.na(CHI_MLU))
+
+
+# Null model
+null <- lmer(CHI_MLU ~ Visit + Diagnosis + (1 | Child.ID) + (1 + Visit | Child.ID), data=train_data)
+summary(null)
 
 #- recreate the models you chose last time (just write the code again and apply it to Train Data)
+model4 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID), data = train_data)
+summary(model4)
+
+model5 <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + Visit2 + Diagnosis:verbalIQ1 + Diagnosis:Visit +  verbalIQ1:Visit + verbalIQ1:Visit2 + Diagnosis:verbalIQ1:Visit + (1 + Visit + Visit2 | Child.ID), data = train_data)
+summary(model5)
 
 
 #- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
-
-
-
-#- create the test dataset (apply the code from assignment 1 or my function to clean up the 3 test datasets)
-# Test data
+rmse(predict(model4), train_data$CHI_MLU) # 0.303
+rmse(predict(model5), train_data$CHI_MLU) #0.303
 
 #- test the performance of the models on the test data (Tips: google the functions "predict()")
+predictions <- predict(model4, test_data)
+rmse(predictions,test_data$CHI_MLU)
 
+predictions2 <- predict(model5, test_data)
+rmse(predictions2,test_data$CHI_MLU)
 
+predictions_null <- predict(null, test_data)
+rmse(predictions_null,test_data$CHI_MLU)
 #- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
+predictInterval(model4, test_data, n.sims=500, level=0.9, stat="median")
 ```
 
 [HERE GOES YOUR ANSWER]
@@ -133,17 +169,50 @@ In this exercise you have to use cross-validation to calculate the predictive er
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
 - Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
-- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
+  - Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test wwaq
 
 
 ```{r}
 #- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
+# Already defined earlier
 
 #- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
+folds <- fold(train_data, k = 5, id_col = "Child.ID")
+rmse_list <- c() # creating an empty list for rmse-values
+
+# creating a for-loop and crossvalidation our 'best' model
+for(i in 1:5){
+  total_train <- filter(folds, .folds != i)
+  total_test <- filter(folds, .folds == i)
+  
+  model <- lmer(CHI_MLU ~ 1 + Diagnosis * verbalIQ1 * (Visit +  Visit2) + (1 + Visit + Visit2 | Child.ID), total_train, REML=FALSE)
+  
+  rmse_list <- c(rmse_list,rmse(total_test$CHI_MLU, predict(model, total_test, allow.new.levels = T)))
+}
+
+mean(rmse_list)
+
+# Trying CVMS package 
+# cv <- fold(train_data, k = 5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% cross_validate(null, folds_col # = '.folds',family='gaussian', REML = FALSE)
 
 #- Report the results and comment on them. 
+# Cross validation highly improves prediction error
 
 #- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+# Trying the more complicated model5
+rmse_list_model5 <- c() # creating an empty list for rmse-values
+
+# creating a for-loop
+for(i in 1:5){
+  total_train_model5 <- filter(folds, .folds != i)
+  total_test_model5 <- filter(folds, .folds == i)
+  
+  model <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + Visit2 + Diagnosis:verbalIQ1 + Diagnosis:Visit +  verbalIQ1:Visit + verbalIQ1:Visit2 + Diagnosis:verbalIQ1:Visit + (1 + Visit + Visit2 | Child.ID), data = total_train_model5, REML=FALSE)
+  
+  rmse_list_model5 <- c(rmse_list_model5, rmse(total_test_model5$CHI_MLU, predict(model, total_test_model5, allow.new.levels = T)))
+}
+
+mean(rmse_list_model5)
 
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 # Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
