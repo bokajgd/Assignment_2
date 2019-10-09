@@ -60,8 +60,8 @@ CleanUpData <- function(Demo,LU,Word){
          "1" = "M",
          "2" = "F"),
       Diagnosis = recode(Diagnosis,
-         "A"  = "TD",
-         "B"  = "ASD")
+         "B"  = "TD",
+         "A"  = "ASD")
     )
 
   return(Data)
@@ -461,6 +461,7 @@ ggplot()+
 # Extracting BIC scores:
 BIC_scores <- ano$"BIC"
 ano
+
 # Cross-validating multiple models using cvsm package
 fold_data <- fold(train_data, k=5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% mutate(CHI_MLU = scale(CHI_MLU))
 
@@ -531,7 +532,7 @@ onlyTD <- train_data %>%
 
 # Plotting Bernie's trajectory compared to the mean trajectory for TD kids
 ggplot()+
-  geom_point(data = onlyTD, aes(x = Visit, y= mean(CHI_MLU), group = Visit, color = "Blue", size=10))+
+  geom_point(data = visit_td_CHI_MLU, aes(x = Visit, y= mean, group = Visit, color = "Blue", size=10))+
   geom_smooth(data = onlyTD, aes(x = Visit, y = CHI_MLU, color = "Blue"), method = lm, se=FALSE)+
   geom_point(data = bernie, aes(x = Visit, y = CHI_MLU, group = Visit, color = "Red", size = 10))+
   geom_smooth(data = bernie, aes(x = Visit, y = CHI_MLU, color = "Red"), method = lm, se=FALSE)+
@@ -539,7 +540,7 @@ ggplot()+
   labs(title = "Bernie compared to TD-children", x = "Number of visit", y = "Mean length of utterance")+
   theme(legend.position="none")+
   geom_text(aes(x = 5, y = 3.5, label = "Bernie", color = "Red"))+
-  geom_text(aes(x = 5, y = 2, label = "Mean TD", color = "Blue"))
+  geom_text(aes(x = 5, y = 2.6, label = "Mean TD", color = "Blue"))
 
 # See how well Bernie is predicted by the model
 predictions_bernie <- predict(model_best, bernie)
@@ -584,7 +585,7 @@ You will be using:
 
 ```{r}
 # Specifying simplified versions of the best model in order to calculate power analyses
-model_best_simple <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1* Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+model_best_simple <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
 model_verbalIQ <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 summary(model_best_simple)
@@ -606,7 +607,7 @@ powerSim(model_best_simple , fixed("Diagnosis:Visit"), nsim = 50, seed = 1, prog
 powerSim(model_verbalIQ , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 100% 
 
 # Calculating the observed power for the interaction effect between visit and verbalIQ
-powerSim(model_best_simple , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 70%
+powerSim(model_best_simple , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 100%
 
 # Calculating the observed power for the three way interaction effect
 powerSim(model_best_simple , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 100%
@@ -615,7 +616,7 @@ powerSim(model_best_simple , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed
 # Power curves for the relevant effects:
 # Extending data along child ID
 model_verbalIQ_ext <- extend(model_verbalIQ, along= "Child.ID", n=120) 
-model_best_simple_ext <- extend(model_best_simple, along="Child.ID", n=150)
+model_best_simple_ext <- extend(model_best_simple, along="Child.ID", n=300)
 
 # Plotting the observed power curve for the main effect of visit
 powercurve_visit = powerCurve(model_verbalIQ_ext, fixed("Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
@@ -634,7 +635,7 @@ powercurve_interaction = powerCurve(model_best_simple_ext, fixed("Diagnosis:Visi
 plot(powercurve_interaction)
 
 # Plotting the observed power curve for the interaction effect between verbalIQ and visit
-best_pc_interaction = powerCurve(model_best_simple_ext, fixed("verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 150, by = 5), seed = 1, progress = F)
+best_pc_interaction = powerCurve(model_best_simple_ext, fixed("verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 300, by = 5), seed = 1, progress = F)
 plot(best_pc_interaction)
 
 # Plotting the observed power curve for the interaction effect between verbalIQ and visit and verbal IQ
@@ -654,14 +655,15 @@ How would you perform a more conservative power analysis?
 
 ```{r}
 # Making copies of the relevant models calculating power analyses based on set minimum effect sizes
-model_best_simple2 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit * verbalIQ1:Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+model_best_simple2 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
 model_verbalIQ2 <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-summary(model_verbalIQ)
+summary(model_verbalIQ2)
+summary(model_best_simple2)
 
 
 # What are the minimum effect sizes we can find for the various main and interaction effects when maintaing power of 80%?
-fixef(model_verbalIQ2)["DiagnosisASD"] <- 0.25
+fixef(model_verbalIQ2)["DiagnosisTD"] <- 0.25
 powerSim(model_verbalIQ2 , fixed("Diagnosis"), nsim = 50, seed = 1, progress = F) # 82%
 
 fixef(model_verbalIQ2)["Visit"] <- 0.067
@@ -670,13 +672,13 @@ powerSim(model_verbalIQ2 , fixed("Visit"), nsim = 50, seed = 1, progress = F) # 
 fixef(model_verbalIQ2)["verbalIQ1"] <- 0.02
 powerSim(model_verbalIQ2 , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 80%
 
-fixef(model_best_simple2)["DiagnosisASD:Visit"] <- 0.1
+fixef(model_best_simple2)["DiagnosisTD:Visit"] <- 0.1
 powerSim(model_best_simple2 , fixed("Diagnosis:Diagnosis"), nsim = 50, seed = 1, progress = F) # 80%
 
 fixef(model_best_simple2)["verbalIQ1:Visit"] <- 0.01
 powerSim(model_best_simple2 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 82%
 
-fixef(model_best_simple2)["Diagnosis:verbalIQ1:Visit"] <- 0.05
+fixef(model_best_simple2)["DiagnosisTD:verbalIQ1:Visit"] <- 0.05
 powerSim(model_best_simple2 , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 82%
 
 ```
@@ -701,7 +703,7 @@ data_15TD <- filter(data_15TD, order<16)
 data_30 <- rbind(data_15TD, data_15ASD)
   
 # Define the models using the new data set 
-model_best_simple_30 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit *  verbalIQ1:Visit + (1 + Visit | Child.ID), data = data_30,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+model_best_simple_30 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit + (1 + Visit | Child.ID), data = data_30,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
 model_verbalIQ_30 <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = data_30,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
