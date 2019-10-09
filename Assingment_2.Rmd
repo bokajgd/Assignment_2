@@ -1,0 +1,726 @@
+---
+title: "Assignment 2 Complete Markdown"
+author: "Group 8"
+date: "8 oktober 2019"
+output: 
+  md_document:
+    variant: markdown_github 
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# LOADING AND CLEANING PACKAGES, FUNCTIONS AND DATA
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+library(githubinstall)
+githubinstall("cvms")
+library(simr)
+pacman::p_load(readr,dplyr,stringr,lmerTest, Metrics,caret, ggbeeswarm, merTools, groupdata2, broom.mixed, simr, ggplot2, plotrr, cvms)
+
+
+CleanUpData <- function(Demo,LU,Word){
+  
+  Speech <- merge(LU, Word) %>% 
+    rename(
+      Child.ID = SUBJ, 
+      Visit=VISIT) %>%
+    mutate(
+      Visit = as.numeric(str_extract(Visit, "\\d")),
+      Child.ID = gsub("\\.","", Child.ID)
+      ) %>%
+    dplyr::select(
+      Child.ID, Visit, MOT_MLU, CHI_MLU, types_MOT, types_CHI, tokens_MOT, tokens_CHI
+    )
+  
+  Demo <- Demo %>%
+    dplyr::select(
+      Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw, Socialization
+    ) %>%
+    mutate(
+      Child.ID = gsub("\\.","", Child.ID)
+    )
+    
+  Data=merge(Demo,Speech,all=T)
+  
+  Data1= Data %>% 
+     subset(Visit=="1") %>% 
+     dplyr::select(Child.ID, ADOS, ExpressiveLangRaw, MullenRaw, Socialization) %>%
+     rename(Ados1 = ADOS, 
+            verbalIQ1 = ExpressiveLangRaw, 
+            nonVerbalIQ1 = MullenRaw,
+            Socialization1 = Socialization) 
+  
+  Data=merge(Data, Data1, all=T) %>%
+    mutate(
+      Child.ID = as.numeric(as.factor(as.character(Child.ID))),
+      Visit = as.numeric(as.character(Visit)),
+      Gender = recode(Gender, 
+         "1" = "M",
+         "2" = "F"),
+      Diagnosis = recode(Diagnosis,
+         "A"  = "TD",
+         "B"  = "ASD")
+    )
+
+  return(Data)
+}
+
+GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
+  data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+  grp <- data[1,'group']
+  newdata <- plyr::arrange(transform(data, x = if(grp%%2==1) xminv else xmaxv), if(grp%%2==1) y else -y)
+  newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+  newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
+  if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+    stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 
+                                              1))
+    quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+    aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+    aesthetics$alpha <- rep(1, nrow(quantiles))
+    both <- cbind(quantiles, aesthetics)
+    quantile_grob <- GeomPath$draw_panel(both, ...)
+    ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+  }
+  else {
+    ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+  }
+})
+
+geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", position = "identity", ..., draw_quantiles = NULL, trim = TRUE, scale = "area", na.rm = FALSE, show.legend = NA, inherit.aes = TRUE) {
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, position = position, show.legend = show.legend, inherit.aes = inherit.aes, params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
+}
+
+# Load training Data
+LU_train <- read.csv("LU_train.csv")
+LU_test <- read.csv("LU_test.csv")
+demo_train <- read.csv("demo_train.csv")
+demo_test <- read.csv("demo_test.csv")
+token_train <- read.csv("token_train.csv")
+token_test <- read.csv("token_test.csv")
+
+
+# Cleanup data
+train_data <- CleanUpData(demo_train, token_train, LU_train)
+test_data <- CleanUpData(demo_test, token_test, LU_test)
+
+# Add visit^2
+train_data$Visit2 <- train_data$Visit^2 
+test_data$Visit2 <- test_data$Visit^2 
+
+# Remove NAs
+train_data <- subset(train_data, !is.na(CHI_MLU))
+test_data <- subset(test_data, !is.na(CHI_MLU))
+
+# Scale verbalIQ and CHI_MLU
+train_data$scaled_verbiq <- scale(train_data$verbalIQ1)
+train_data$scaled_chimlu <- scale(train_data$CHI_MLU)
+
+write.csv(train_data, "train_data")
+```
+### Characterize the participants (Exercise 1)
+
+Identify relevant variables: participants demographic characteristics, diagnosis, ADOS, Verbal IQ, Non Verbal IQ, Socialization, Visit, Number of words used, Number of unique words used, mean length of utterance in both child and parents.
+
+Make sure the variables are in the right format.
+
+Describe the characteristics of the two groups of participants and whether the two groups are well matched.
+
+```{r descriptive stats, include = TRUE}
+# Checking the data types of the variables
+str(train_data)
+
+# Changing Child.ID from numeric to character
+train_data$Child.ID <- as.character(train_data$Child.ID) 
+
+# Summarising data using summary()
+summary(train_data)
+
+# Inspecting the diagnosis groups seperately to get and understanding of the data 
+train_data %>% filter(Visit==1) %>% group_by(Diagnosis) %>%  summarize(Number=n(), Mean_age=mean(Age), Girls=sum(Gender=="F"), Boys=sum(Gender=="M"), Mean_CHI_MLU=mean(CHI_MLU), Mean_MOT_MLU=mean(MOT_MLU))
+```
+
+RESULTS:
+There are almost equally many ASD (n=29) and TD (n=32) kids but a large under-representation of girls in the sample population. The age of ASD kids are furthermore a bit older than TD kids on average. There seems to be no large different in MLU for kids but a small difference in MLU for moms.
+
+## Let's test hypothesis 1: Children with ASD display a language impairment  (Exercise 2)
+
+### Hypothesis: The child's MLU changes: i) over time, ii) according to diagnosis
+
+Let's start with a simple mixed effects linear model
+
+Remember to plot the data first and then to run a statistical test.
+- Which variable(s) should be included as fixed factors?
+- Which variable(s) should be included as random factors?
+
+```{r ex2, include = TRUE}
+# Plotting linear trajectories for the seperates diagnosis-groups
+ggplot(train_data, aes(Visit, CHI_MLU, group = Diagnosis))+
+  geom_smooth(method=lm, aes(color=Diagnosis))+
+  theme_classic()+
+  xlab("Time (Visit)") +
+  ylab("Mean length of utterance")
+  
+# Showing traject. for each child
+  ggplot(train_data, aes(Visit, CHI_MLU, group = Child.ID))+
+  geom_smooth(method=lm, aes(color=Visit), se=FALSE)+
+  theme_classic()+
+  xlab("Time (Visit)") +
+  ylab("Mean length of utterance") +
+  facet_wrap(.~Diagnosis)
+
+# Specifying the null model 
+null <- lm(CHI_MLU ~ 1, data=train_data)  
+summary(null)
+
+# Specifying the baseline model with Visit and Diagnosis as fixed effect and Child.ID as random slopes and intercepts
+model <- lmer(CHI_MLU ~ Visit + Diagnosis + (1 + Visit | Child.ID), data=train_data, REML = F,
+              control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(model)
+
+# Specifying the basic interaction model 
+model_interaction <- lmer(CHI_MLU ~ Visit*Diagnosis + (1 + Visit | Child.ID), data=train_data, REML = F,
+              control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(model_interaction)
+
+```
+
+How would you evaluate whether the model is a good model?
+
+```{r ex2 evaluate, include = TRUE}
+# Evaluating the strength of the respective models by comparing them using anova()
+anova(model, model_interaction, null)
+```
+
+Not too good, right? Let's check whether a growth curve model is better.
+Remember: a growth curve model assesses whether changes in time can be described by linear, or quadratic, or cubic (or... etc.) components.
+First build the different models, then compare them to see which one is better.
+
+```{r ex2 growth curve, include = TRUE}
+#Specifying growth curve baseline model
+baseline_curve <- lmer(CHI_MLU ~ Visit + Diagnosis + Visit2 + (1 + Visit + Visit2 | Child.ID), data=train_data, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+#Specifying interaction grow curve model
+interaction_curve <- lmer(CHI_MLU ~ Visit + Diagnosis + Visit2 + Visit*Diagnosis + Visit2*Diagnosis + (1 + Visit + Visit2 | Child.ID), data=train_data, REML = F,control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(interaction_curve)
+
+# Comparing the models
+anova(model, model_interaction, baseline_curve, interaction_curve)
+```
+
+Exciting right? Let's check whether the model is doing an alright job at fitting the data. Plot the actual CHI_MLU data against the predictions of the model fitted(model). 
+
+```{r}
+# Plotting child MLU with growth curve model
+ChildMLU_plot=ggplot(train_data,aes(Visit,CHI_MLU,group=Diagnosis,shape=Diagnosis,colour=Diagnosis,fill=Diagnosis)) + 
+  geom_quasirandom(alpha=0.5,dodge.width = 0.6) +
+  stat_smooth(method="lm",formula = y ~ x + I(x^2)) + 
+  xlab("Time (Visit)") +
+  ylab("Children's mean length of utterance") + 
+  scale_colour_discrete(name="Population",
+                        breaks=c("0", "1"),
+                        labels=c("Control", "ASD")) +
+  geom_split_violin(data=subset(train_data,Visit==1),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==2),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==3),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==4),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==5),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==6),alpha=0.2, linetype='blank')+
+  theme_classic()
+print(ChildMLU_plot)
+```
+
+Now it's time to report our results.
+Remember to report:
+- the estimates for each predictor (beta estimate, standard error, p-value)
+- A plain word description of the results
+- A plot of your model's predictions (and some comments on whether the predictions are sensible)
+
+RESULTS:
+Linguistic development of children MLU is affected by 'Visit' (Beta = 0.29, SE = 0.10, p < 0.05), 'Diagnosis' (Beta = -0.51, SE = 0.17, p < 0.05), 'Visit:DiagnosisTD' (Beta = 0.47, SE = 0.14, p < 0.05).
+The variables 'Visit2 (growth-curve value)' (Beta = -0.03, SE = 0.01, p = 0.07) and the interaction 'Diagnosis:Visit2' (Beta = -0.03, SE = 0.02, p = 0.11) turned out to be non-significant predicotrs of children's mean length utterance.
+
+This means that Visit, Diagnosis and the interaction between Visit & Diagnosis are good predictors of our value Child Mean Length Utterance but that the variables Visit2 (which represents the growth curve that we modeled) and the interaction between said variable and Diagnosis weren't good predictors for our outcome-variable.
+
+However as we plot the growth-curve, it seems reasonable to be working under the assumption that language development generally slows over time. However these variables should potentially be left out of a model. Another thing to consider for interpretation purposes is that if we include the growth-curve variable 'Visit2' we should potentially leave the originial 'Visit' variable out, as these two variables are almost perfectly correlated.
+
+## Let's test hypothesis 2: Parents speak equally to children with ASD and TD  (Exercise 3)
+
+### Hypothesis: Parental MLU changes: i) over time, ii) according to diagnosis
+
+```{r ex3, include = TRUE}
+# Specifying the baseline model for parents MLU with Visit and Diagnosis as fixed effect and Child.ID as random slopes and intercepts
+parents_baseline <- lmer(MOT_MLU ~ Visit + Diagnosis + (1 + Visit | Child.ID), data=train_data, REML = F,control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(parents_baseline)
+
+# Specifying the parent model with basic interaction
+parents_interaction <- lmer(MOT_MLU ~ Visit*Diagnosis + (1+ Visit | Child.ID), data=train_data, REML = F,control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(parents_interaction)
+
+#Specifying parent's baseline growth curve model
+parents_curve <- lmer(MOT_MLU ~ Visit + Diagnosis + Visit2 + (1 + Visit + Visit2 | Child.ID), data=train_data, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(parents_curve)
+
+
+#Specifying parent's interaction growth curve model
+parents_interaction_curve <- lmer(MOT_MLU ~ Visit + Diagnosis + Visit2 + Visit*Diagnosis + Visit2*Diagnosis + (1 + Visit + Visit2| Child.ID), data=train_data, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(parents_interaction_curve)
+
+
+# Comparing parent models using anova()
+anova(parents_baseline, parents_interaction, parents_curve, parents_interaction_curve)
+
+# Plotting the parent MLU data
+parents_plot=ggplot(train_data,aes(Visit,MOT_MLU,group=Diagnosis,shape=Diagnosis,colour=Diagnosis,fill=Diagnosis)) + 
+  geom_quasirandom(alpha=0.5,dodge.width = 0.6) +
+  stat_smooth(method="lm",formula = y ~ x) + 
+  xlab("Time (Visit)") +
+  ylab("Parent's mean length of utterance") + 
+  scale_colour_discrete(name="Population",
+                        breaks=c("0", "1"),
+                        labels=c("Control", "ASD")) +
+  geom_split_violin(data=subset(train_data,Visit==1),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==2),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==3),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==4),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==5),alpha=0.2, linetype='blank')+
+  geom_split_violin(data=subset(train_data,Visit==6),alpha=0.2, linetype='blank')+
+  theme_classic()
+print(parents_plot)
+```
+
+Parent MLU is affected by a growth-curve to a very small degree. However when adding more parameters we're potentially overcomplicating the model and overfitting the regression-line. The model that has the lowest Bayesian Information Criterion is actually the null-model predictiong the MLU of parents. This model indicates 'Visit' (Beta = 0.12, SE = 0.02, p < 0.05) and 'Diagnosis' (Beta = 0.46, SE = 0.12, p < 0.05) as significant predictors for the MLU of parents. 
+It doesn't make as much sense to assume a growth curve for parents as they aren't developing language as the experiment progressed, which was the argument for fitting a growth-curve to the model predicting Child MLU.
+
+### Adding new variables (Exercise 4)
+
+Your task now is to figure out how to best describe the children linguistic trajectory. The dataset contains a bunch of additional demographic, cognitive and clinical variables (e.g.verbal and non-verbal IQ). Try them out and identify the statistical models that best describes your data (that is, the children's MLU). Describe how you selected the best model and send the code to run the model to Riccardo and Kenneth
+
+
+```{r ex4, include = TRUE}
+#Specifying models - when variables are placed in parenthesis (because of colinearity) the model does not combine them in the same interactions
+model_nonverbalIQ <- lmer(CHI_MLU ~ Diagnosis * (nonVerbalIQ1+ verbalIQ1) * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+# Excluding nonverbalIQ
+model_best <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(model_best)
+
+# Adding scoialization
+model_social <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Socialization1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+# Comparing all models
+ano <- anova(model_interaction, interaction_curve, model_best, model_nonverbalIQ, model_social, model)
+
+```
+
+RESULTS:
+A more complicated model allowed us to explain much more of the variance (R-squared = 0.772) while producing a lower Bayesian Information Criterion (BIC = 517.66). This model included the significant predictors 'VerbalIQ1:Visit' (Beta = 0.04, SE = 0.01, p < 0.05) and 'VerbalIQ1:Visit2' (Beta = -0.004, SE = 0.001, p < 0.05). It also included variables; Diagnosis, VerbalIQ1, Visit, Visit2 as well as two-way interactions; Diagnosis:verbalIQ1, Diagnosis:Visit, Diagnosis:Visit2 as well as three-way interactions; Diagnosis:verbalIQ1:Visit and Diagnosis:verbalIQ:Visit2.
+
+The best model was chosen based on which model best predicted CHI_MLU according to the Bayesian Information Criterion and variance explained. Within the model some variables are highly correlated posing the problem of inter-collinearity which makes the model quite hard to interpret. So this is only the best model if we neglect the potential need to interpret the model. If we wanted to achieve a more interpretable model we'd have to make some revisions as to which variables to include as predictors.
+
+
+
+## Welcome to the second exciting part of the Language Development in ASD exercise
+
+In this exercise we will delve more in depth with different practices of model comparison and model selection, by first evaluating your models from last time against some new data. Does the model generalize well?
+Then we will learn to do better by cross-validating models and systematically compare them.
+
+The questions to be answered (in a separate document) are:
+1- Discuss the differences in performance of your model in training and testing data
+2- Which individual differences should be included in a model that maximizes your ability to explain/predict new data?
+3- Predict a new kid's performance (Bernie) and discuss it against expected performance of the two groups
+
+## Learning objectives
+
+- Critically appraise the predictive framework (contrasted to the explanatory framework)
+- Learn the basics of machine learning workflows: training/testing, cross-validation, feature selections
+
+## Let's go
+
+N.B. There are several datasets for this exercise, so pay attention to which one you are using!
+
+1. The (training) dataset from last time (the awesome one you produced :-) ).
+2. The (test) datasets on which you can test the models from last time:
+* Demographic and clinical data: https://www.dropbox.com/s/ra99bdvm6fzay3g/demo_test.csv?dl=1
+* Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=1
+* Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=1
+
+### Exercise 1) Testing model performance
+
+How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
+
+- recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
+- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
+- create the test dataset (apply the code from assignment 1 to clean up the 3 test datasets)
+- test the performance of the models on the test data (Tips: google the functions "predict()")
+- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
+
+```{r}
+# Best model found in part 1 based on Bayesian Information Criterion
+model_best <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+# Calculating performance using root mean square error
+rmse(predict(model_best), train_data$CHI_MLU) # 0.29
+
+# Testing the performance of the best model on the test data 
+predictions <- predict(model_best, test_data)
+rmse(predictions,test_data$CHI_MLU) # 0.67
+
+# Testing the performance of the most simple model on the test data 
+predictions_model_baseline <- predict(model, test_data)
+rmse(predictions_model_baseline,test_data$CHI_MLU)
+
+# Testing the performance of the null model (mean) on the test data 
+predictions_null <- predict(null, test_data)
+rmse(predictions_null,test_data$CHI_MLU)
+
+# Analysing the uncertainty of the predictions by calculating the prediction intervals
+predictInterval(model_best, test_data, n.sims=500, level=0.95, stat="median")
+```
+
+RESULTS:
+The final model we decided to use is defined as 'best-model'. Using the model to predict CHI_MLU of test_data produces a root-mean-squared-error of 0.70 as compared to using a simpler model in predicting the CHI_MLU of test_data which produced a root-mean-squared-error of 1.33.
+From these statistics we can infer that our model does much better than the baseline model. 
+
+### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
+
+One way to reduce bad surprises when testing a model on new data is to train the model via cross-validation. 
+
+In this exercise you have to use cross-validation to calculate the predictive error of your models and use this predictive error to select the best possible model.
+
+- Use cross-validation to compare your model from last week with the basic model (Child MLU as a function of Time and Diagnosis, and don't forget the random effects!)
+- (Tips): google the function "createFolds";  loop through each fold, train both models on the other folds and test them on the fold)
+
+
+- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+  - Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test wwaq
+
+
+```{r}
+# Folding the data into 5 groups
+folds <- fold(train_data, k = 5, id_col = "Child.ID")
+
+# Creating an empty list for rmse-values
+rmse_list <- c()
+
+# Creating a for-loop for cross validating our best model
+
+for(i in 1:5){
+  total_train <- filter(folds, .folds != i)
+  total_test <- filter(folds, .folds == i)
+  
+  model_cv <- lmer(CHI_MLU ~ 1 + Diagnosis * verbalIQ1 * (Visit +  Visit2) + (1 + Visit + Visit2 | Child.ID), total_train, REML=FALSE, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+  
+  rmse_list <- c(rmse_list,rmse(total_test$CHI_MLU, predict(model_cv, total_test, allow.new.levels=T)))
+}
+
+mean(rmse_list)
+
+
+#  What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+cv_data <- train_data
+rmse_data <- c()
+rmse_mean <- c()
+fold_number <- c()
+
+# Loop that calculates mean RMSE scores for multiple numbers of folds:
+for(i in 2:60){
+  folds_cv <- fold(cv_data, k = i, id_col = "Child.ID")
+  fold_number <- c(fold_number, i)
+for(j in 1:(i+1)){
+  if (length(rmse_data)<i){
+    train <- filter(folds_cv, .folds != j)
+    test <- filter(folds_cv, .folds == j)
+  
+    model_cv_fold <- lmer(CHI_MLU ~ 1 + Diagnosis * verbalIQ1 * (Visit +  Visit2) + (1 + Visit + Visit2 | Child.ID), train, REML=FALSE, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+  
+    rmse_data <- c(rmse_data, rmse(test$CHI_MLU, predict(model_cv_fold, test, allow.new.levels=T)))} 
+  else{
+  rmse_mean <- c(rmse_mean, mean(rmse_data))
+  rmse_data <- c()}
+}
+}
+
+
+# Adding data to a dataframe
+rmse_fold <- data.frame(rmse_mean)
+rmse_fold$fold_number <- fold_number
+
+# Plotting rmse scores for each fold
+ggplot()+
+  geom_point(data = rmse_fold, aes(x = fold_number, y= rmse_mean, size=5, colour="Blue"))+
+  geom_smooth(data = rmse_fold, aes(x = fold_number, y= rmse_mean, colour="Blue"), method="lm")+
+  theme_classic()+
+  labs(title = "RMSE scores as a function of folds", x = "Number of fold", y = "RMSE score")+
+  theme(legend.position="none")
+
+# Are Bayesian Information Criterion-score correlated with RMSE for different models?
+# Extracting BIC scores:
+BIC_scores <- ano$"BIC"
+ano
+# Cross-validating multiple models using cvsm package
+fold_data <- fold(train_data, k=5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% mutate(CHI_MLU = scale(CHI_MLU))
+
+models <- c("CHI_MLU ~ Visit*Diagnosis + (1 + Visit | Child.ID)",
+            "CHI_MLU ~ Visit+Diagnosis + (1 + Visit | Child.ID)",
+            "CHI_MLU ~ Visit + Diagnosis + Visit2 + Visit*Diagnosis + Visit2*Diagnosis + (1 + Visit + Visit2 | Child.ID)",
+            "CHI_MLU ~ Diagnosis * verbalIQ1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID)",
+            "CHI_MLU ~ Diagnosis * (verbalIQ1 + nonVerbalIQ1) * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID)",
+            "CHI_MLU ~ Diagnosis * verbalIQ1 * Socialization1 * (Visit + Visit2) + (1 + Visit + Visit2 | Child.ID)")
+
+CV <- cross_validate(fold_data, models, fold_cols = ".folds", family = "gaussian", control = lmerControl(optimizer="nloptwrap", calc.derivs = FALSE, optCtrl = list(ftol_abs=1e-10, xtol_abs=1e-10, maxval=100000)), rm_nc=FALSE, REML=FALSE)
+
+CV
+
+# Exctracting rmse scores
+rmse_scores <- CV$'RMSE'
+
+# Creating a data frame with rmse and BIC scores
+bic_rmse_data <- data.frame(rmse_scores)
+bic_rmse_data$BIC_score <- BIC_scores
+
+# Running a correlation test
+correlation <- cor.test(bic_rmse_data$BIC_score, bic_rmse_data$rmse_scores, method="pearson")
+correlation
+# Calculating R^2
+effect_size <- 0.8269^2
+effect_size
+```
+
+
+RESULTS:
+The best model produces a mean RMSE-value of approximately 0.54 which is actually better than just running a single prediction score. We further investigated how increasing the amount of folds affects the RMSE-score from 2 folds to 60 folds. It doesn't change the RMSE-score a lot but there's a definite negative slope if you plot number of folds by RMSE-score. This doesn't necessarily mean that you should make k folds when you have k data-points as you're increasingly predicting your model on less and less data, making the predictions less accurate/generalizable.
+
+When assessing the out-of-sample prediction error of various models via K-fold cross-validation model 4 and model 5 turn out to be the best models (very similar). These can then be tested on the test_data. 
+
+### Exercise 3) Assessing the single child
+
+Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
+
+Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
+
+You want to evaluate:
+
+- how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
+
+- how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+```{r}
+# Filtering out Bernie-boy
+bernie <- test_data %>% filter(Child.ID==2)
+
+# Filtering out all TD kids and calculate mean MLU for each visit
+visit_td_CHI_MLU <- train_data %>% filter(Diagnosis=='TD') %>% group_by(Visit) %>% summarise(mean=mean(CHI_MLU))
+visit_td_CHI_MLU
+
+# Adding SternBern
+visit_td_CHI_MLU$bernie <- bernie$CHI_MLU
+
+# Calculate difference
+visit_td_CHI_MLU$difference <- visit_td_CHI_MLU$bernie-visit_td_CHI_MLU$mean
+visit_td_CHI_MLU$difference # Bernie performs muuuch better
+
+# Showing difference
+bernie <- test_data %>% 
+  filter(Child.ID == 2)
+onlyTD <- train_data %>% 
+  filter(Diagnosis == "TD")
+
+# Plotting Bernie's trajectory compared to the mean trajectory for TD kids
+ggplot()+
+  geom_point(data = onlyTD, aes(x = Visit, y= mean(CHI_MLU), group = Visit, color = "Blue", size=10))+
+  geom_smooth(data = onlyTD, aes(x = Visit, y = CHI_MLU, color = "Blue"), method = lm, se=FALSE)+
+  geom_point(data = bernie, aes(x = Visit, y = CHI_MLU, group = Visit, color = "Red", size = 10))+
+  geom_smooth(data = bernie, aes(x = Visit, y = CHI_MLU, color = "Red"), method = lm, se=FALSE)+
+  theme_classic()+
+  labs(title = "Bernie compared to TD-children", x = "Number of visit", y = "Mean length of utterance")+
+  theme(legend.position="none")+
+  geom_text(aes(x = 5, y = 3.5, label = "Bernie", color = "Red"))+
+  geom_text(aes(x = 5, y = 2, label = "Mean TD", color = "Blue"))
+
+# See how well Bernie is predicted by the model
+predictions_bernie <- predict(model_best, bernie)
+rmse(predictions_bernie,bernie$CHI_MLU)
+```
+
+RESULTS:
+By first plotting the MLU of by Visit against the mean MLU of TD-kids by visit we get an idea about where he lies on the scale. We quickly realize that compared to the average TD-kid he seems to be quite remarkable, both with a higher starting MLU as well as a quicker learning curve. These values are symbolized by the intercept as well as the slope.
+
+We then create a table comprising the mean value of TD-kids by visit as well as Bernie's values by visit as well as the absolute difference between them to examine the exact differences between them. We clearly see that Bernie has a MLU larger than the average TD-kid.
+
+When predicting Bernie with our model we get a RMSE of 0.35 (doesn't tell us much as it isn't generalizable). By inspection we can see, that our model actually predicts Bernie to be a little worse than he actually is. As an example Bernie actually has a MLU-score of 3.45 at visit 6 while our model predicts him to have a MLU-score of 2.91 at visit 6.
+
+
+## Welcome to the third exciting part of the Language Development in ASD exercise
+
+In this part of the assignment, we try to figure out how a new study should be planned (i.e. how many participants?) in order to have enough power to replicate the findings (ensuring our sample size is adequate, our alpha at 0.05 and our beta at 0.8):
+1- if we trust the estimates of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
+2- if we are skeptical of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
+3- if we only have access to 30 participants. Identify the power for each relevant effect and discuss whether it's worth to run the study and why
+The list above is also what you should discuss in your code-less report.
+
+
+## Learning objectives
+
+- Learn how to calculate statistical power
+- Critically appraise how to apply frequentist statistical power
+
+### Exercise 1
+
+How much power does your study have (if your model estimates are quite right)?
+- Load your dataset (both training and testing), fit your favorite model, assess power for your effects of interest (probably your interactions).
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+- Test how many participants you would have to have to replicate the findings (assuming the findings are correct)
+
+N.B. Remember that main effects are tricky once you have interactions in the model (same for 2-way interactions w 3-way interactions in the model). If you want to test the power of main effects, run a model excluding the interactions.
+N.B. Check this paper: https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.12504
+You will be using:
+- powerSim() to calculate power
+- powerCurve() to estimate the needed number of participants
+- extend() to simulate more participants
+
+```{r}
+# Specifying simplified versions of the best model in order to calculate power analyses
+model_best_simple <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1* Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+model_verbalIQ <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(model_best_simple)
+
+summary(model_best)
+summary(model_best_simple)
+summary(model_verbalIQ)
+
+# Calculating the observed power for the main effect of diagnosis
+powerSim(model_verbalIQ, fixed("Diagnosis"), nsim = 50, seed = 1, progress = F) # 38%
+
+# Calculating the observed power for the main effect of visit
+powerSim(model_verbalIQ, fixed("Visit"), nsim = 50, seed = 1, progress = F) # 100%
+
+# Calculating the observed power for the interaction effect between visit and diagnosis
+powerSim(model_best_simple , fixed("Diagnosis:Visit"), nsim = 50, seed = 1, progress = F) # 100%
+
+# Calculating the observed power for the main effect of visit
+powerSim(model_verbalIQ , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 100% 
+
+# Calculating the observed power for the interaction effect between visit and verbalIQ
+powerSim(model_best_simple , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 70%
+
+# Calculating the observed power for the three way interaction effect
+powerSim(model_best_simple , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 100%
+
+
+# Power curves for the relevant effects:
+# Extending data along child ID
+model_verbalIQ_ext <- extend(model_verbalIQ, along= "Child.ID", n=120) 
+model_best_simple_ext <- extend(model_best_simple, along="Child.ID", n=150)
+
+# Plotting the observed power curve for the main effect of visit
+powercurve_visit = powerCurve(model_verbalIQ_ext, fixed("Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
+plot(powercurve_visit)
+
+# Plotting the observed power curve for the main effect of diagnosis
+powercurve_diagnosis = powerCurve(model_verbalIQ_ext, fixed("Diagnosis"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
+plot(powercurve_diagnosis)
+
+# Plotting the observed power curve for the main effect of verbal IQ
+powercurve_verbalIQ = powerCurve(model_verbalIQ_ext, fixed("verbalIQ1"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
+plot(powercurve_verbalIQ)
+
+# Plotting the observed power curve for the interaction effect
+powercurve_interaction = powerCurve(model_best_simple_ext, fixed("Diagnosis:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
+plot(powercurve_interaction)
+
+# Plotting the observed power curve for the interaction effect between verbalIQ and visit
+best_pc_interaction = powerCurve(model_best_simple_ext, fixed("verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 150, by = 5), seed = 1, progress = F)
+plot(best_pc_interaction)
+
+# Plotting the observed power curve for the interaction effect between verbalIQ and visit and verbal IQ
+threeway_interaction = powerCurve(model_best_simple_ext, fixed("Diagnosis:verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
+plot(threeway_interaction)
+```
+
+
+### Exercise 2
+
+How would you perform a more conservative power analysis?
+- Identify and justify a minimum effect size for each of your relevant effects
+- take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+- assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+- if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+```{r}
+# Making copies of the relevant models calculating power analyses based on set minimum effect sizes
+model_best_simple2 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit * verbalIQ1:Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+model_verbalIQ2 <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = train_data,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+summary(model_verbalIQ)
+
+
+# What are the minimum effect sizes we can find for the various main and interaction effects when maintaing power of 80%?
+fixef(model_verbalIQ2)["DiagnosisASD"] <- 0.25
+powerSim(model_verbalIQ2 , fixed("Diagnosis"), nsim = 50, seed = 1, progress = F) # 82%
+
+fixef(model_verbalIQ2)["Visit"] <- 0.067
+powerSim(model_verbalIQ2 , fixed("Visit"), nsim = 50, seed = 1, progress = F) # 80%
+
+fixef(model_verbalIQ2)["verbalIQ1"] <- 0.02
+powerSim(model_verbalIQ2 , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 80%
+
+fixef(model_best_simple2)["DiagnosisASD:Visit"] <- 0.1
+powerSim(model_best_simple2 , fixed("Diagnosis:Diagnosis"), nsim = 50, seed = 1, progress = F) # 80%
+
+fixef(model_best_simple2)["verbalIQ1:Visit"] <- 0.01
+powerSim(model_best_simple2 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 82%
+
+fixef(model_best_simple2)["Diagnosis:verbalIQ1:Visit"] <- 0.05
+powerSim(model_best_simple2 , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 82%
+
+```
+
+
+### Exercise 3
+
+Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why
+
+```{r}
+# Specifying simplified versions of the best model in order to calculate power analyses
+
+# Subset 30 kids out
+data_15ASD <- train_data %>% filter(Diagnosis=="ASD") %>% group_by(Child.ID) 
+data_15ASD$order <-  as.numeric(as.factor(data_15ASD$Child.ID))
+data_15ASD <- filter(data_15ASD, order<16)
+
+data_15TD <- train_data %>% filter(Diagnosis=="TD") %>% group_by(Child.ID) 
+data_15TD$order <-  as.numeric(as.factor(data_15TD$Child.ID))
+data_15TD <- filter(data_15TD, order<16)
+
+data_30 <- rbind(data_15TD, data_15ASD)
+  
+# Define the models using the new data set 
+model_best_simple_30 <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Visit *  verbalIQ1:Visit + (1 + Visit | Child.ID), data = data_30,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+model_verbalIQ_30 <- lmer(CHI_MLU ~ Diagnosis + verbalIQ1 + Visit + (1 + Visit | Child.ID), data = data_30,  REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+# Calculating the observed power for the main effect of diagnosis
+powerSim(model_verbalIQ_30 , fixed("Diagnosis"), nsim = 50, seed = 1, progress = F)  # 20%
+
+# Calculating the observed power for the main effect of visit
+powerSim(model_verbalIQ_30 , fixed("Visit"), nsim = 50, seed = 1, progress = F) # 100%
+
+# Calculating the observed power for the interaction effect between visit and diagnosis
+powerSim(model_best_simple_30 , fixed("Diagnosis:Visit"), nsim = 50, seed = 1, progress = F) # 100%
+
+# Calculating the observed power for the main effect of visit
+powerSim(model_verbalIQ_30 , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 100%
+
+# Calculating the observed power for the interaction effect between visit and verbalIQ
+powerSim(model_best_simple_30 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 0.0%
+
+# Calculating the observed power for the interaction effect between visit and verbalIQ and diagnosis
+powerSim(model_best_simple_30 , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F)  # 88%
+
+```

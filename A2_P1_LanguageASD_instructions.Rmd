@@ -246,7 +246,7 @@ Linguistic development of children MLU is affected by ... [COMPLETE]
 
 ```{r ex3, include = FALSE}
 # Paraent Null model 
-parents_null <- lmer(MOT_MLU ~ VISIT + Diagnosis + (1 | SUBJ) + (0 + VISIT | SUBJ), data=data)
+parents_null <- lmer(MOT_MLU ~ VISIT + Diagnosis + (1 | SUBJ) + (1 + VISIT | SUBJ), data=data)
 summary(null)
 
 # First parents model with interaction
