@@ -557,7 +557,7 @@ When predicting Bernie with our model we get a RMSE of 0.35 (doesn't tell us muc
 ## Welcome to the third exciting part of the Language Development in ASD exercise
 
 In this part of the assignment, we try to figure out how a new study should be planned (i.e. how many participants?) in order to have enough power to replicate the findings (ensuring our sample size is adequate, our alpha at 0.05 and our beta at 0.8):
-1- if we trust the estimates of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
+1- if we trust the estimates of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for
 2- if we are skeptical of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
 3- if we only have access to 30 participants. Identify the power for each relevant effect and discuss whether it's worth to run the study and why
 The list above is also what you should discuss in your code-less report.
