@@ -719,7 +719,7 @@ powerSim(model_best_simple_30 , fixed("Diagnosis:Visit"), nsim = 50, seed = 1, p
 powerSim(model_verbalIQ_30 , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 100%
 
 # Calculating the observed power for the interaction effect between visit and verbalIQ
-powerSim(model_best_simple_30 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 0.0%
+powerSim(model_best_simple_30 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 0%
 
 # Calculating the observed power for the interaction effect between visit and verbalIQ and diagnosis
 powerSim(model_best_simple_30 , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F)  # 88%
