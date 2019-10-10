@@ -16,9 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(pacman)
 library(githubinstall)
 githubinstall("cvms")
-library(simr)
+githubinstall("simr", lib = .libPaths())
 pacman::p_load(readr,dplyr,stringr,lmerTest, Metrics,caret, ggbeeswarm, merTools, groupdata2, broom.mixed, simr, ggplot2, plotrr, cvms)
-
 
 CleanUpData <- function(Demo,LU,Word){
   
@@ -311,7 +310,7 @@ model_social <- lmer(CHI_MLU ~ Diagnosis * verbalIQ1 * Socialization1 * (Visit +
 
 # Comparing all models
 ano <- anova(model_interaction, interaction_curve, model_best, model_nonverbalIQ, model_social, model)
-
+ano
 ```
 
 RESULTS:
@@ -463,7 +462,7 @@ BIC_scores <- ano$"BIC"
 ano
 
 # Cross-validating multiple models using cvsm package
-fold_data <- fold(train_data, k=5, cat_col = 'Diagnosis', id_col = 'Child.ID') %>% mutate(CHI_MLU = scale(CHI_MLU))
+fold_data <- fold(train_data, k=5, cat_col = 'Diagnosis', id_col = 'Child.ID')
 
 models <- c("CHI_MLU ~ Visit*Diagnosis + (1 + Visit | Child.ID)",
             "CHI_MLU ~ Visit+Diagnosis + (1 + Visit | Child.ID)",
@@ -607,7 +606,7 @@ powerSim(model_best_simple , fixed("Diagnosis:Visit"), nsim = 50, seed = 1, prog
 powerSim(model_verbalIQ , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F) # 100% 
 
 # Calculating the observed power for the interaction effect between visit and verbalIQ
-powerSim(model_best_simple , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 100%
+powerSim(model_best_simple , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 70%
 
 # Calculating the observed power for the three way interaction effect
 powerSim(model_best_simple , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 100%
@@ -616,7 +615,7 @@ powerSim(model_best_simple , fixed("Diagnosis:verbalIQ1:Visit"), nsim = 50, seed
 # Power curves for the relevant effects:
 # Extending data along child ID
 model_verbalIQ_ext <- extend(model_verbalIQ, along= "Child.ID", n=120) 
-model_best_simple_ext <- extend(model_best_simple, along="Child.ID", n=300)
+model_best_simple_ext <- extend(model_best_simple, along="Child.ID", n=150)
 
 # Plotting the observed power curve for the main effect of visit
 powercurve_visit = powerCurve(model_verbalIQ_ext, fixed("Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 120, by = 5), seed = 1, progress = F) 
@@ -635,7 +634,7 @@ powercurve_interaction = powerCurve(model_best_simple_ext, fixed("Diagnosis:Visi
 plot(powercurve_interaction)
 
 # Plotting the observed power curve for the interaction effect between verbalIQ and visit
-best_pc_interaction = powerCurve(model_best_simple_ext, fixed("verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 300, by = 5), seed = 1, progress = F)
+best_pc_interaction = powerCurve(model_best_simple_ext, fixed("verbalIQ1:Visit"), along = "Child.ID", nsim = 10, breaks = seq(from = 10, to = 150, by = 5), seed = 1, progress = F)
 plot(best_pc_interaction)
 
 # Plotting the observed power curve for the interaction effect between verbalIQ and visit and verbal IQ
@@ -675,7 +674,7 @@ powerSim(model_verbalIQ2 , fixed("verbalIQ1"), nsim = 50, seed = 1, progress = F
 fixef(model_best_simple2)["DiagnosisTD:Visit"] <- 0.1
 powerSim(model_best_simple2 , fixed("Diagnosis:Diagnosis"), nsim = 50, seed = 1, progress = F) # 80%
 
-fixef(model_best_simple2)["verbalIQ1:Visit"] <- 0.01
+# fixef(model_best_simple2)["verbalIQ1:Visit"] <- 0.01
 powerSim(model_best_simple2 , fixed("verbalIQ1:Visit"), nsim = 50, seed = 1, progress = F) # 82%
 
 fixef(model_best_simple2)["DiagnosisTD:verbalIQ1:Visit"] <- 0.05
